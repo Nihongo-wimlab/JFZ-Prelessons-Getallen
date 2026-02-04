@@ -1,0 +1,422 @@
+import React, { useState, useEffect } from 'react';
+import { RotateCcw, Check, X, Star, BookOpen, Zap, Grid3x3 } from 'lucide-react';
+
+const japaneseNumbers = {
+  0: { romaji: 'rei/zero', hiragana: 'れい/ゼロ', kanji: '零' },
+  1: { romaji: 'ichi', hiragana: 'いち', kanji: '一' },
+  2: { romaji: 'ni', hiragana: 'に', kanji: '二' },
+  3: { romaji: 'san', hiragana: 'さん', kanji: '三' },
+  4: { romaji: 'shi/yon', hiragana: 'し/よん', kanji: '四' },
+  5: { romaji: 'go', hiragana: 'ご', kanji: '五' },
+  6: { romaji: 'roku', hiragana: 'ろく', kanji: '六' },
+  7: { romaji: 'shichi/nana', hiragana: 'しち/なな', kanji: '七' },
+  8: { romaji: 'hachi', hiragana: 'はち', kanji: '八' },
+  9: { romaji: 'kyuu/ku', hiragana: 'きゅう/く', kanji: '九' },
+  10: { romaji: 'juu', hiragana: 'じゅう', kanji: '十' },
+};
+
+// Generate numbers 11-99
+for (let i = 11; i <= 99; i++) {
+  const tens = Math.floor(i / 10);
+  const ones = i % 10;
+  
+  let romaji = '';
+  let hiragana = '';
+  
+  if (tens === 1) {
+    romaji = 'juu';
+    hiragana = 'じゅう';
+  } else {
+    romaji = japaneseNumbers[tens].romaji.split('/')[0] + 'juu';
+    hiragana = japaneseNumbers[tens].hiragana.split('/')[0] + 'じゅう';
+  }
+  
+  if (ones > 0) {
+    romaji += japaneseNumbers[ones].romaji.split('/')[0];
+    hiragana += japaneseNumbers[ones].hiragana.split('/')[0];
+  }
+  
+  japaneseNumbers[i] = { romaji, hiragana };
+}
+
+const JapaneseNumbersApp = () => {
+  const [mode, setMode] = useState('home');
+  const [learnLevel, setLearnLevel] = useState(0);
+  const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [memoryCards, setMemoryCards] = useState([]);
+  const [flippedCards, setFlippedCards] = useState([]);
+  const [matchedCards, setMatchedCards] = useState([]);
+  const [quizNumber, setQuizNumber] = useState(null);
+  const [quizOptions, setQuizOptions] = useState([]);
+  const [score, setScore] = useState(0);
+  const [speedScore, setSpeedScore] = useState(0);
+  const [speedTimer, setSpeedTimer] = useState(30);
+  const [speedActive, setSpeedActive] = useState(false);
+  const [masteredNumbers, setMasteredNumbers] = useState(new Set());
+
+  const levels = [
+    { name: '0-10', range: [0, 10] },
+    { name: '11-20', range: [11, 20] },
+    { name: '21-40', range: [21, 40] },
+    { name: '41-60', range: [41, 60] },
+    { name: '61-80', range: [61, 80] },
+    { name: '81-99', range: [81, 99] },
+  ];
+
+
+
+  const initMemoryGame = () => {
+    const range = levels[Math.min(learnLevel, levels.length - 1)].range;
+    const numbers = [];
+    for (let i = range[0]; i <= Math.min(range[0] + 5, range[1]); i++) {
+      numbers.push(i);
+    }
+    
+    const cards = [];
+    numbers.forEach(num => {
+      cards.push({ id: `${num}-num`, number: num, type: 'number', matched: false });
+      cards.push({ id: `${num}-jap`, number: num, type: 'japanese', matched: false });
+    });
+    
+    setMemoryCards(cards.sort(() => Math.random() - 0.5));
+    setFlippedCards([]);
+    setMatchedCards([]);
+  };
+
+
+
+  const initSpeedQuiz = () => {
+    const range = levels[Math.min(learnLevel, levels.length - 1)].range;
+    const num = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+    setQuizNumber(num);
+    setSpeedScore(0);
+    setSpeedTimer(30);
+    setSpeedActive(true);
+  };
+
+  useEffect(() => {
+    if (speedActive && speedTimer > 0) {
+      const timer = setTimeout(() => setSpeedTimer(speedTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (speedTimer === 0) {
+      setSpeedActive(false);
+    }
+  }, [speedTimer, speedActive]);
+
+  const handleMemoryClick = (card) => {
+    if (flippedCards.length === 2 || flippedCards.includes(card.id) || matchedCards.includes(card.number)) return;
+    
+    const newFlipped = [...flippedCards, card.id];
+    setFlippedCards(newFlipped);
+    
+    if (newFlipped.length === 2) {
+      const card1 = memoryCards.find(c => c.id === newFlipped[0]);
+      const card2 = memoryCards.find(c => c.id === newFlipped[1]);
+      
+      if (card1.number === card2.number) {
+        setMatchedCards([...matchedCards, card1.number]);
+        setMasteredNumbers(new Set([...masteredNumbers, card1.number]));
+        setTimeout(() => setFlippedCards([]), 500);
+      } else {
+        setTimeout(() => setFlippedCards([]), 1000);
+      }
+    }
+  };
+
+  const handleSpeedAnswer = (answer) => {
+    if (answer === japaneseNumbers[quizNumber].romaji.split('/')[0]) {
+      setSpeedScore(speedScore + 1);
+      setMasteredNumbers(new Set([...masteredNumbers, quizNumber]));
+    }
+    
+    if (speedActive) {
+      const range = levels[Math.min(learnLevel, levels.length - 1)].range;
+      const num = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
+      setQuizNumber(num);
+    }
+  };
+
+  if (mode === 'home') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8 mt-8">
+            <h1 className="text-5xl font-bold text-red-600 mb-2">日本語の数字</h1>
+            <p className="text-xl text-gray-600">Leer Japanse Getallen</p>
+            <div className="mt-4 inline-flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full">
+              <Star className="text-yellow-600" size={20} />
+              <span className="text-yellow-800 font-semibold">{masteredNumbers.size} / 100 beheerst</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={() => setMode('learn')}
+              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all border-2 border-red-200 hover:border-red-400"
+            >
+              <BookOpen className="mx-auto mb-3 text-red-500" size={40} />
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Leren</h2>
+              <p className="text-gray-600">Ontdek getallen stap voor stap</p>
+            </button>
+
+            <button
+              onClick={() => { setMode('flashcard'); setFlashcardIndex(0); setShowAnswer(false); }}
+              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all border-2 border-blue-200 hover:border-blue-400"
+            >
+              <RotateCcw className="mx-auto mb-3 text-blue-500" size={40} />
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Flashcards</h2>
+              <p className="text-gray-600">Oefen met kaartjes</p>
+            </button>
+
+            <button
+              onClick={() => { setMode('memory'); initMemoryGame(); }}
+              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all border-2 border-green-200 hover:border-green-400"
+            >
+              <Grid3x3 className="mx-auto mb-3 text-green-500" size={40} />
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Memory</h2>
+              <p className="text-gray-600">Match de getallen</p>
+            </button>
+
+            <button
+              onClick={() => { setMode('speed'); initSpeedQuiz(); }}
+              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all border-2 border-orange-200 hover:border-orange-400"
+            >
+              <Zap className="mx-auto mb-3 text-orange-500" size={40} />
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Snelheidsquiz</h2>
+              <p className="text-gray-600">30 seconden - zoveel mogelijk goed!</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'learn') {
+    const level = levels[learnLevel];
+    const currentNumbers = [];
+    for (let i = level.range[0]; i <= level.range[1]; i++) {
+      currentNumbers.push(i);
+    }
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <button onClick={() => setMode('home')} className="mb-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+            ← Terug
+          </button>
+          
+          <h2 className="text-3xl font-bold text-red-600 mb-6">Leren: {level.name}</h2>
+          
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+            {levels.map((l, idx) => (
+              <button
+                key={idx}
+                onClick={() => setLearnLevel(idx)}
+                className={`px-4 py-2 rounded-lg whitespace-nowrap ${
+                  idx === learnLevel
+                    ? 'bg-red-500 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {l.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {currentNumbers.map(num => (
+              <div key={num} className="bg-white p-6 rounded-xl shadow-lg border-2 border-red-100">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-gray-800 mb-2">{num}</div>
+                  <div className="text-3xl text-red-500 mb-2">{japaneseNumbers[num].hiragana}</div>
+                  <div className="text-lg text-gray-600">{japaneseNumbers[num].romaji}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'flashcard') {
+    const range = levels[Math.min(learnLevel, levels.length - 1)].range;
+    const currentNumbers = [];
+    for (let i = range[0]; i <= range[1]; i++) {
+      currentNumbers.push(i);
+    }
+    const currentNum = currentNumbers[flashcardIndex % currentNumbers.length];
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 flex items-center justify-center">
+        <div className="max-w-2xl w-full">
+          <button onClick={() => setMode('home')} className="mb-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+            ← Terug
+          </button>
+
+          <div className="text-center mb-4">
+            <span className="text-gray-600">Kaart {flashcardIndex + 1} / {currentNumbers.length}</span>
+          </div>
+
+          <div
+            onClick={() => setShowAnswer(!showAnswer)}
+            className="bg-white p-12 rounded-2xl shadow-2xl cursor-pointer hover:shadow-3xl transition-all border-4 border-blue-200 min-h-[400px] flex flex-col items-center justify-center"
+          >
+            {!showAnswer ? (
+              <>
+                <div className="text-8xl font-bold text-gray-800 mb-6">{currentNum}</div>
+                <p className="text-gray-500 text-lg">Klik om het antwoord te zien</p>
+              </>
+            ) : (
+              <>
+                <div className="text-6xl text-blue-500 mb-4">{japaneseNumbers[currentNum].hiragana}</div>
+                <div className="text-3xl text-gray-700">{japaneseNumbers[currentNum].romaji}</div>
+              </>
+            )}
+          </div>
+
+          <div className="flex gap-4 mt-6">
+            <button
+              onClick={() => { setFlashcardIndex(Math.max(0, flashcardIndex - 1)); setShowAnswer(false); }}
+              disabled={flashcardIndex === 0}
+              className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            >
+              Vorige
+            </button>
+            <button
+              onClick={() => { setFlashcardIndex((flashcardIndex + 1) % currentNumbers.length); setShowAnswer(false); }}
+              className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 font-semibold"
+            >
+              Volgende
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'memory') {
+    const allMatched = matchedCards.length === memoryCards.length / 2;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <button onClick={() => setMode('home')} className="mb-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+            ← Terug
+          </button>
+
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-green-600">Memory Spel</h2>
+            <div className="text-xl font-semibold text-gray-700">
+              {matchedCards.length} / {memoryCards.length / 2} paren
+            </div>
+          </div>
+
+          {allMatched && (
+            <div className="bg-green-100 border-2 border-green-400 rounded-lg p-4 mb-6 text-center">
+              <p className="text-2xl font-bold text-green-700">🎉 Gefeliciteerd! Alle paren gevonden!</p>
+              <button
+                onClick={initMemoryGame}
+                className="mt-4 bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
+              >
+                Opnieuw spelen
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+            {memoryCards.map(card => {
+              const isFlipped = flippedCards.includes(card.id) || matchedCards.includes(card.number);
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => handleMemoryClick(card)}
+                  disabled={matchedCards.includes(card.number)}
+                  className={`aspect-square rounded-xl font-bold transition-all flex flex-col items-center justify-center ${
+                    isFlipped
+                      ? matchedCards.includes(card.number)
+                        ? 'bg-green-200 text-green-700 border-2 border-green-400'
+                        : 'bg-white text-gray-800 border-2 border-green-300'
+                      : 'bg-gradient-to-br from-green-400 to-emerald-500 text-transparent hover:from-green-500 hover:to-emerald-600'
+                  }`}
+                >
+                  {isFlipped && (
+                    card.type === 'number' ? (
+                      <div className="text-3xl">{card.number}</div>
+                    ) : (
+                      <div className="text-center">
+                        <div className="text-2xl mb-1">{japaneseNumbers[card.number].hiragana}</div>
+                        <div className="text-sm text-gray-600">{japaneseNumbers[card.number].romaji}</div>
+                      </div>
+                    )
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+
+  if (mode === 'speed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 p-4 flex items-center justify-center">
+        <div className="max-w-2xl w-full">
+          <button onClick={() => setMode('home')} className="mb-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+            ← Terug
+          </button>
+
+          <div className="bg-white p-8 rounded-2xl shadow-2xl">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-3xl font-bold text-orange-600">Snelheidsquiz</h2>
+              <div className="text-right">
+                <div className="text-4xl font-bold text-orange-500">{speedTimer}s</div>
+                <div className="text-xl font-semibold text-gray-700">Score: {speedScore}</div>
+              </div>
+            </div>
+
+            {speedActive ? (
+              <>
+                <div className="text-center mb-8">
+                  <div className="text-7xl font-bold text-gray-800 mb-6">{quizNumber}</div>
+                  <p className="text-gray-600">Hoe heet dit getal in het Japans?</p>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Type in romaji..."
+                  className="w-full p-4 text-2xl border-2 border-gray-300 rounded-lg mb-4 text-center focus:border-orange-500 focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSpeedAnswer(e.target.value.toLowerCase().trim());
+                      e.target.value = '';
+                    }
+                  }}
+                  autoFocus
+                />
+              </>
+            ) : (
+              <div className="text-center">
+                <div className="text-6xl mb-4">⏱️</div>
+                <div className="text-3xl font-bold text-gray-800 mb-4">Tijd is om!</div>
+                <div className="text-2xl text-orange-600 mb-8">Je score: {speedScore}</div>
+                <button
+                  onClick={initSpeedQuiz}
+                  className="bg-orange-500 text-white px-8 py-4 rounded-lg hover:bg-orange-600 text-xl font-semibold"
+                >
+                  Opnieuw proberen
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+};
+
+export default JapaneseNumbersApp;
